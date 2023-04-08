@@ -1,39 +1,87 @@
-import axios from 'axios'
-import React, { useState } from 'react'
-import ReactQuill from 'react-quill'
-import 'react-quill/dist/quill.snow.css'
-import { useHistory } from 'react-router-dom'
-import EditorToolbar, { formats, modules } from './EditorToolbar'
-import './TextEditor.css'
+import axios from "axios";
+import React, { useState } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+import { useHistory } from "react-router-dom";
+import EditorToolbar, { formats, modules } from "./EditorToolbar";
+import "./TextEditor.css";
+
+const urlPattern = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
+
+function base64ToFile(url, i) {
+  let arr = url.split(",");
+  // console.log(arr)
+  let mime = arr[0].match(/:(.*?);/)[1];
+  let data = arr[1];
+
+  let dataStr = atob(data);
+  let n = dataStr.length;
+  let dataArr = new Uint8Array(n);
+
+  while (n--) {
+    dataArr[n] = dataStr.charCodeAt(n);
+  }
+
+  let file = new File([dataArr], `File_${i}.jpg`, { type: mime });
+
+  return file;
+}
 
 function Add() {
-  let history = useHistory()
+  let history = useHistory();
   const [userInfo, setuserInfo] = useState({
-    title: '',
-    description: '',
-    information: '',
-  })
+    title: "",
+    description: "",
+    information: "",
+  });
   const onChangeValue = (e) => {
     setuserInfo({
       ...userInfo,
       [e.target.name]: e.target.value,
-    })
-  }
+    });
+  };
   const ondescription = (value) => {
-    console.log(value)
-    setuserInfo({ ...userInfo, description: value })
-  }
+    console.log(value);
+
+    // Regex bắt src của img
+    // matches là array chứa src
+    const matches = value.match(/<img [^>]*src="[^"]*"[^>]*>/gm)
+                          .map(x => x.replace(/.*src="([^"]*)".*/, '$1'));
+    console.log(matches);
+    // Loop qua mảng match chứa src để convert sang jpg
+    for (let i = 0; i < matches.length; i++) {
+      // console.log(matches[i]);
+
+      // Check nếu khác link URL thì vào if
+      if(!urlPattern.test(matches[i])){
+        // console.log(true);
+        matches[i] = base64ToFile(matches[i], i)
+      }
+    }
+
+    // Kết quả sau khi convert xong
+    console.log("\n\nAFTER convert to File");    
+    
+    // Array chứa cả link Url và File jpg 
+    console.log(matches);
+
+    // Array chỉ File jpg 
+    const filteredURLArr = matches.filter((element) => !urlPattern.test(element));
+    console.log(filteredURLArr); 
+
+    setuserInfo({ ...userInfo, description: value });
+  };
   const oninformation = (value) => {
-    setuserInfo({ ...userInfo, information: value })
-  }
-  const [isError, setError] = useState(null)
+    setuserInfo({ ...userInfo, information: value });
+  };
+  const [isError, setError] = useState(null);
   const addDetails = async (event) => {
     try {
-      event.preventDefault()
-      event.persist()
+      event.preventDefault();
+      event.persist();
       if (userInfo.description.length < 50) {
-        setError('Required, Add description minimum length 50 characters')
-        return
+        setError("Required, Add description minimum length 50 characters");
+        return;
       }
       axios
         .post(`http://localhost:8080/addArticle`, {
